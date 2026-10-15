@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Map Graph Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#0b1020;--panel:#121a2e;--panel2:#18223b;--line:#26324f;--tx:#e6edf7;--mut:#8a98b8;--h0:#f5a524;--h1:#22d3ee;--h2:#a78bfa;--h3:#4ade80;--map:#0b1220;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef2f9;--panel:#fff;--panel2:#f1f5fb;--line:#d5deee;--tx:#14203a;--mut:#5b6b8c;--map:#dfe7f3}}
+:root[data-theme="dark"]{--bg:#0b1020}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.app{display:grid;grid-template-columns:360px 1fr;height:100%}
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.sec{padding:14px 16px;border-bottom:1px solid var(--line)}
+h1{font-size:16px;margin:0 0 2px}.sub{color:var(--mut);font-size:12px;margin:0 0 10px}
+.row{display:flex;gap:8px}
+input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);color:var(--tx);padding:9px 11px;border-radius:8px;font:inherit}
+input:focus{outline:2px solid var(--h1);outline-offset:-1px}
+button{background:var(--panel2);color:var(--tx);border:1px solid var(--line);padding:8px 11px;border-radius:8px;font:inherit;cursor:pointer}
+button:hover{border-color:var(--h1)}
+button.pri{background:var(--h1);color:#04202a;border-color:var(--h1);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{padding:3px 9px;font-size:12px;border-radius:999px}
+.scroll{overflow:auto;min-height:0}
+.grow{flex:1}
+.lbltitle{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:0 0 8px;display:flex;justify-content:space-between}
+.item{display:flex;gap:9px;align-items:center;padding:7px 8px;border-radius:8px;cursor:pointer}
+.item:hover,.item.on{background:var(--panel2)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.d0{background:var(--h0)}.d1{background:var(--h1)}.d2{background:var(--h2)}.d3{background:var(--h3)}
+.item small{color:var(--mut);margin-left:auto;font-size:11px}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--mut);margin:0 4px 4px 0}
+.meta h2{font-size:15px;margin:0 0 6px}.meta p{margin:6px 0;color:var(--mut)}
+.conn{display:flex;gap:8px;align-items:center;padding:5px 0;border-top:1px dashed var(--line);font-size:13px}
+.conn em{color:var(--mut);font-style:normal;font-size:11px;margin-left:auto}
+.conn button{padding:2px 8px;font-size:12px}
+#map{background:var(--map);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:60px 60px;height:100%;min-height:0}
+.pin{width:18px;height:18px;border-radius:50%;border:3px solid #0b1020;box-shadow:0 0 0 2px currentColor,0 0 14px currentColor;background:currentColor;margin:2px}
+.pin.sel{transform:scale(1.35);box-shadow:0 0 0 3px #fff,0 0 18px currentColor}
+.h0{color:var(--h0)}.h1{color:var(--h1)}.h2{color:var(--h2)}.h3{color:var(--h3)}
+.leaflet-tooltip.lbl{background:rgba(11,16,32,.85);color:#e6edf7;border:1px solid #26324f;border-radius:6px;padding:2px 7px;font-size:12px;box-shadow:none}
+.leaflet-tooltip.lbl:before{display:none}
+.leaflet-tooltip{position:absolute;white-space:nowrap;pointer-events:none}
+.leaflet-bar a{display:block;width:30px;height:30px;line-height:30px;text-align:center;background:var(--panel);color:var(--tx);text-decoration:none;border-bottom:1px solid var(--line);font-size:18px}
+.leaflet-bar{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.leaflet-control-attribution{background:rgba(0,0,0,.5);color:#bbb;font-size:10px;padding:0 5px}.leaflet-control-attribution a{color:#ccc}
+.legend{position:absolute;right:12px;bottom:28px;z-index:900;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;display:flex;gap:12px}
+.legend span{display:flex;gap:5px;align-items:center}
+.mapwrap{position:relative;min-height:0}
+/* minimal Leaflet core CSS */
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-tile-container,.leaflet-zoom-box,.leaflet-map-pane svg,.leaflet-overlay-pane svg{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;position:relative;outline:0;-webkit-tap-highlight-color:transparent}
+.leaflet-tile,.leaflet-marker-icon{user-select:none;-webkit-user-drag:none}
+.leaflet-tile{visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-shadow-pane{z-index:500}.leaflet-marker-pane{z-index:600}.leaflet-tooltip-pane{z-index:650}.leaflet-popup-pane{z-index:700}
+.leaflet-map-pane canvas{position:absolute}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-right .leaflet-control{float:right;margin-right:10px}
+.leaflet-top .leaflet-control{margin-top:10px}.leaflet-left .leaflet-control{margin-left:10px}.leaflet-bottom .leaflet-control{margin-bottom:10px}
+.leaflet-interactive{cursor:pointer}.leaflet-grab{cursor:grab}.leaflet-dragging .leaflet-grab{cursor:grabbing}
+.leaflet-marker-icon.leaflet-interactive{pointer-events:auto}
+@media (max-width:760px){.app{grid-template-columns:1fr;grid-template-rows:55% 45%}.mapwrap{order:-1}aside{border-right:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <div class="sec">
+    <h1>Map Graph Explorer</h1>
+    <p class="sub">Search a place, then click nodes to expand hop by hop.</p>
+    <div class="row"><input id="q" list="dl" placeholder="Search a location…" autocomplete="off"><button class="pri" id="go">Search</button></div>
+    <datalist id="dl"></datalist>
+    <div id="msg" class="sub" style="margin:8px 0 0"></div>
+    <div class="chips" id="chips"></div>
+  </div>
+  <div class="sec meta" id="meta"></div>
+  <div class="sec grow scroll">
+    <div class="lbltitle"><span>Graph nodes</span><span id="stats"></span></div>
+    <div id="list"></div>
+  </div>
+  <div class="sec row"><button id="fit">Fit all</button><button id="reset">Reset</button></div>
+</aside>
+<div class="mapwrap">
+  <div id="map"></div>
+  <div class="legend"><span><i class="dot d0"></i>Root</span><span><i class="dot d1"></i>Hop 1</span><span><i class="dot d2"></i>Hop 2</span><span><i class="dot d3"></i>Hop 3+</span></div>
+</div>
+</div>
+<script>
+// id, name, type, lat, lng, description, [[linkedId, relation]]
+const D=[
+["isb","Islamabad","Capital city",33.6844,73.0479,"Planned capital of Pakistan at the foot of the Margalla Hills.",[["faisal","landmark"],["margalla","adjacent to"],["rawal","contains"],["rwp","twin city"],["saidpur","heritage site"]]],
+["faisal","Faisal Mosque","Landmark",33.7295,73.0372,"Contemporary mosque and one of the largest in South Asia.",[["margalla","sits below"]]],
+["margalla","Margalla Hills","Natural area",33.748,73.075,"Hill range and national park with hiking trails.",[["saidpur","trail to"]]],
+["rawal","Rawal Lake","Reservoir",33.699,73.123,"Artificial reservoir supplying water to Rawalpindi and Islamabad.",[["rwp","supplies water"]]],
+["saidpur","Saidpur Village","Heritage site",33.749,73.069,"Restored 16th century village with temples and eateries.",[]],
+["rwp","Rawalpindi","City",33.5651,73.0169,"Major garrison city, historic bazaars and GT Road hub.",[["taxila","nearby"],["lahore","GT Road"]]],
+["taxila","Taxila","Archaeological site",33.7463,72.8397,"Ancient Gandhara city, UNESCO World Heritage Site.",[["hazro","nearby"],["tarbela","nearby"]]],
+["hazro","Hazro","Town",33.9094,72.491,"Town in Attock District, Punjab.",[["attock","same district"],["tarbela","nearby"]]],
+["attock","Attock City","City",33.766,72.3609,"District capital near the Indus and Kabul river confluence.",[["attockfort","contains"],["peshawar","GT Road"]]],
+["attockfort","Attock Fort","Fort",33.8933,72.243,"Mughal fort built by Akbar overlooking the Indus.",[]],
+["tarbela","Tarbela Dam","Dam",34.089,72.698,"One of the largest earth-filled dams in the world, on the Indus.",[]],
+["peshawar","Peshawar","City",34.0151,71.5249,"One of South Asia's oldest living cities near the Khyber Pass.",[]],
+["lahore","Lahore","City",31.5204,74.3587,"Cultural capital of Pakistan and capital of Punjab.",[["badshahi","landmark"],["lahorefort","landmark"],["wagah","border road"]]],
+["badshahi","Badshahi Mosque","Landmark",31.5882,74.3109,"17th century Mughal mosque.",[["lahorefort","faces"]]],
+["lahorefort","Lahore Fort","Fort",31.5889,74.3147,"Citadel of Lahore, UNESCO World Heritage Site.",[]],
+["wagah","Wagah Border","Border crossing",31.604,74.573,"Pakistan-India crossing known for the daily flag ceremony.",[]]
+];
+const E={},A={};
+D.forEach(d=>{E[d[0]]={id:d[0],name:d[1],type:d[2],ll:[d[3],d[4]],desc:d[5]};A[d[0]]=A[d[0]]||[]});
+D.forEach(d=>d[6].forEach(([t,r])=>{A[d[0]].push({to:t,rel:r});A[t].push({to:d[0],rel:r})}));
+const COL=['#f5a524','#22d3ee','#a78bfa','#4ade80'];
+const $=s=>document.querySelector(s);
+const map=L.map('map',{zoomControl:true}).setView([33.2,73],7);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:18}).addTo(map);
+const layer=L.layerGroup().addTo(map);
+let nodes=new Map(),sel=null;
+const kids=id=>[...nodes].filter(([k,v])=>v.parent===id).map(x=>x[0]);
+function drop(id){kids(id).forEach(k=>{drop(k);nodes.delete(k)})}
+function expand(id){const h=nodes.get(id).hop+1;A[id].forEach(a=>{if(!nodes.has(a.to))nodes.set(a.to,{hop:h,parent:id})})}
+function start(id){nodes.clear();nodes.set(id,{hop:0,parent:null});expand(id);sel=id;render([id,...kids(id)])}
+function pick(id){sel=id;if(!kids(id).length)expand(id);render([id,...A[id].map(a=>a.to).filter(t=>nodes.has(t))])}
+function render(fit){
+  layer.clearLayers();
+  const seen=new Set();
+  nodes.forEach((v,id)=>A[id].forEach(a=>{
+    if(!nodes.has(a.to))return;
+    const k=[id,a.to].sort().join('|');if(seen.has(k))return;seen.add(k);
+    const h=Math.min(3,Math.max(v.hop,nodes.get(a.to).hop));
+    L.polyline([E[id].ll,E[a.to].ll],{color:COL[h],weight:2.5,opacity:.75,dashArray:'7 7'}).bindTooltip(a.rel,{sticky:true}).addTo(layer);
+  }));
+  nodes.forEach((v,id)=>{
+    const h=Math.min(3,v.hop);
+    L.marker(E[id].ll,{icon:L.divIcon({className:'',html:`<div class="pin h${h}${id===sel?' sel':''}"></div>`,iconSize:[24,24],iconAnchor:[12,12]})})
+      .bindTooltip(E[id].name,{permanent:true,direction:'right',offset:[12,0],className:'lbl'})
+      .on('click',()=>pick(id)).addTo(layer);
+  });
+  if(fit&&fit.length)map.fitBounds(L.latLngBounds(fit.map(i=>E[i].ll)),{padding:[70,70],maxZoom:11});
+  panels();
+}
+function panels(){
+  const hops=[...nodes.values()].map(v=>v.hop);
+  $('#stats').textContent=nodes.size?`${nodes.size} nodes · ${Math.max(...hops)} hops`:'';
+  const sorted=[...nodes].sort((a,b)=>a[1].hop-b[1].hop||E[a[0]].name.localeCompare(E[b[0]].name));
+  $('#list').innerHTML=sorted.length?sorted.map(([id,v])=>`<div class="item ${id===sel?'on':''}" data-act="go" data-id="${id}"><i class="dot d${Math.min(3,v.hop)}"></i><div>${E[id].name}<br><small style="margin:0">${E[id].type}</small></div><small>hop ${v.hop}</small></div>`).join(''):'<p class="sub">No nodes yet. Search above or pick a starting point.</p>';
+  const m=$('#meta');
+  if(!sel){m.innerHTML='<p class="sub" style="margin:0">Select a node to see its metadata and connections.</p>';return}
+  const e=E[sel],v=nodes.get(sel),has=kids(sel).length>0;
+  m.innerHTML=`<h2>${e.name}</h2><span class="tag">${e.type}</span><span class="tag">hop ${v.hop}</span><span class="tag">${e.ll[0].toFixed(4)}, ${e.ll[1].toFixed(4)}</span>
+  <p>${e.desc}</p>
+  <div class="row" style="margin:8px 0"><button data-act="${has?'col':'exp'}">${has?'Collapse children':'Expand'}</button><button data-act="fly">Zoom to</button><button data-act="root">Make root</button></div>
+  <div class="lbltitle" style="margin-top:10px"><span>Connections (${A[sel].length})</span></div>
+  ${A[sel].map(a=>`<div class="conn"><i class="dot d${nodes.has(a.to)?Math.min(3,nodes.get(a.to).hop):''}" style="${nodes.has(a.to)?'':'background:var(--line)'}"></i>${E[a.to].name}<em>${a.rel}</em><button data-act="${nodes.has(a.to)?'go':'add'}" data-id="${a.to}">${nodes.has(a.to)?'Show':'Add'}</button></div>`).join('')||'<p class="sub">No linked entities.</p>'}`;
+}
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-act]');if(!b)return;
+  const act=b.dataset.act,id=b.dataset.id;
+  if(act==='go'){sel=id;render([id]);map.flyTo(E[id].ll,Math.max(map.getZoom(),9))}
+  else if(act==='add'){nodes.set(id,{hop:nodes.get(sel).hop+1,parent:sel});sel=id;render([id,...A[id].map(a=>a.to).filter(t=>nodes.has(t))])}
+  else if(act==='exp'){expand(sel);render([sel,...A[sel].map(a=>a.to).filter(t=>nodes.has(t))])}
+  else if(act==='col'){drop(sel);render([sel])}
+  else if(act==='fly'){map.flyTo(E[sel].ll,11)}
+  else if(act==='root'){start(sel)}
+  else if(act==='start'){$('#q').value=E[id].name;start(id)}
+});
+function search(){
+  const t=$('#q').value.trim().toLowerCase();if(!t)return;
+  const hit=D.find(d=>d[1].toLowerCase()===t)||D.find(d=>d[1].toLowerCase().includes(t));
+  $('#msg').textContent=hit?'':'No match in the demo dataset.';
+  if(hit){$('#q').value=hit[1];start(hit[0])}
+}
+$('#go').onclick=search;
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+$('#q').addEventListener('change',search);
+$('#fit').onclick=()=>{if(nodes.size)map.fitBounds(L.latLngBounds([...nodes.keys()].map(i=>E[i].ll)),{padding:[70,70]})};
+$('#reset').onclick=()=>{nodes.clear();sel=null;$('#q').value='';$('#msg').textContent='';render();map.setView([33.2,73],7)};
+$('#dl').innerHTML=D.map(d=>`<option value="${d[1]}">`).join('');
+$('#chips').innerHTML=D.map(d=>`<button class="chip" data-act="start" data-id="${d[0]}">${d[1]}</button>`).join('');
+render();
+</script>
+</body>
+</html>
